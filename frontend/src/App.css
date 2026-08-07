@@ -1,0 +1,236 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+}
+
+.screen {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  transition: background 2.5s ease, color 1.5s ease;
+  cursor: default;
+}
+
+/* ---- time-of-day themes ---- */
+
+.theme-morning {
+  background: linear-gradient(160deg, #FBEEDD 0%, #F6E1CE 55%, #F3D9C4 100%);
+  color: #4A4038;
+  --glow-color: #E8B98A;
+}
+
+.theme-afternoon {
+  background: linear-gradient(160deg, #F6EFE4 0%, #F1E6D6 55%, #EAD9C4 100%);
+  color: #4A4038;
+  --glow-color: #CB9A52;
+}
+
+.theme-evening {
+  background: linear-gradient(160deg, #EDE3E6 0%, #DCCDD6 55%, #C9B8C7 100%);
+  color: #453C46;
+  --glow-color: #B08FAE;
+}
+
+/* ---- ambient drifting light, background only ---- */
+
+.ambient-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, var(--glow-color) 0%, transparent 70%);
+  opacity: 0.2;
+}
+
+.ambient-glow--a {
+  top: 8%;
+  left: 12%;
+  width: 260px;
+  height: 260px;
+  animation: driftGlow 14s ease-in-out infinite;
+}
+
+.ambient-glow--b {
+  bottom: 10%;
+  right: 10%;
+  width: 320px;
+  height: 320px;
+  animation: driftGlow 18s ease-in-out infinite reverse;
+}
+
+@keyframes driftGlow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(6px, -8px); }
+}
+
+/* ---- time label ---- */
+
+.time-label {
+  position: absolute;
+  top: 40px;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  opacity: 0.55;
+}
+
+/* ---- central presence ---- */
+
+.presence-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 36px;
+  padding: 0 40px;
+  max-width: 640px;
+  text-align: center;
+}
+
+.presence {
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 255, 255, 0.8) 0%,
+    var(--glow-color) 55%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  box-shadow: 0 0 60px var(--glow-color);
+  animation: breathe 5.5s ease-in-out infinite;
+  transition: background 1.5s ease, box-shadow 1.5s ease;
+}
+
+.presence-core {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+/* ---- caption / voice moment ---- */
+
+.caption-slot {
+  min-height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.caption-bubble {
+  animation: riseIn 0.6s ease;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 22px;
+  padding: 26px 34px;
+  font-size: 27px;
+  font-weight: 700;
+  line-height: 1.5;
+  box-shadow: 0 18px 40px -22px rgba(60, 45, 40, 0.35);
+  max-width: 560px;
+}
+
+.caption-sub {
+  animation: riseIn 0.8s ease;
+  font-size: 20px;
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- memory corner (reminiscence engine) ---- */
+
+.memory-corner {
+  position: absolute;
+  bottom: 120px;
+  left: 56px;
+  width: 92px;
+  height: 70px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  opacity: 0.45;
+  transform: rotate(-3deg);
+  transition: all 1.2s ease;
+}
+
+.memory-corner.is-active {
+  background: #FFF9EE;
+  border-color: var(--glow-color);
+  opacity: 1;
+  box-shadow: 0 14px 30px -14px rgba(60, 45, 40, 0.35);
+  animation: photoSway 6s ease-in-out infinite;
+}
+
+@keyframes photoSway {
+  0%, 100% { transform: rotate(-3deg) translateY(0); }
+  50% { transform: rotate(-1deg) translateY(-3px); }
+}
+
+/* ---- recognized visitor marker ---- */
+
+.visitor-marker {
+  position: absolute;
+  top: 40px;
+  right: 56px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  border: 2px solid var(--glow-color);
+  box-shadow: 0 10px 24px -12px rgba(60, 45, 40, 0.3);
+  animation: riseIn 0.8s ease;
+}
+
+/* ---- reassurance wash ---- */
+
+.reassurance-wash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 45%,
+    transparent 30%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+}
+
+/* ---- accessibility: respect reduced motion ---- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glow,
+  .presence,
+  .memory-corner.is-active,
+  .caption-bubble,
+  .caption-sub,
+  .visitor-marker {
+    animation: none !important;
+  }
+}
