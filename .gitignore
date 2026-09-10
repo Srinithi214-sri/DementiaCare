@@ -12,6 +12,15 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.pytest_cache/
+
+# Fall detection: datasets, generated artifacts, snapshots, reports
+fall_detection/data/
+fall_detection/**/__pycache__/
+fall_detection/models/*.pt
+fall_detection/models/*.joblib
+fall_detection/models/*.task
+fall_detection/models/*.part
 
 # Editor/OS
 .vscode/

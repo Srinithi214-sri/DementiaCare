@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -)",
+      "Bash(pip install *)",
+      "Bash(python -c \"import pymongo; print\\('pymongo', pymongo.version\\)\")",
+      "Bash(python -m pytest fall_detection/tests/test_events_client.py -q)",
+      "Bash(python -c \"import pandas; print\\('pandas', pandas.__version__\\)\")",
+      "Bash(python -m pytest fall_detection/tests/test_data_prep.py -q)",
+      "Bash(python -m pytest fall_detection/tests -q)",
+      "Bash(python -m fall_detection.data_prep.download)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python -c \"import sklearn, joblib; print\\('sklearn', sklearn.__version__, 'joblib', joblib.__version__\\)\")",
+      "Bash(python -m pytest fall_detection/tests/test_subject_split.py -q)",
+      "Bash(python -m pytest fall_detection/tests/test_windowing.py -q)",
+      "Bash(python -m pytest fall_detection/tests/test_rf_train.py -q)",
+      "Bash(python -m pytest fall_detection/tests/test_gru_train.py -q)",
+      "Bash(python -m pytest fall_detection/tests/test_smoothing.py fall_detection/tests/test_state_machine.py -q)",
+      "Bash(python -m pytest fall_detection/tests/test_evaluate.py -q)",
+      "Bash(python -m pytest fall_detection/tests/test_inference_smoke.py -q)",
+      "Bash(python -c \"import fall_detection.inference.run_webcam; print\\('run_webcam imports OK'\\)\")",
+      "Bash(python -m pytest fall_detection/tests/test_pipeline_integration.py -q)",
+      "Bash(python -c \"import fall_detection.data_prep.caucafall_adapter; print\\('caucafall_adapter imports OK'\\)\")",
+      "Bash(timeout 280 python -m fall_detection.data_prep.fetch_urfd --limit 3)",
+      "Bash(python -c \"import fall_detection.data_prep.fetch_urfd, fall_detection.data_prep.fetch_caucafall; print\\('fetch modules import OK'\\)\")"
+    ]
+  }
+}

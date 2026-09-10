@@ -1,0 +1,16 @@
+# webcam test, model=rf, 2026-09-10 21:05:44
+t=   1.9s  NORMAL     p=0.00  s=0.00  pose=Y
+t=   3.2s  NORMAL     p=0.07  s=0.03  pose=Y
+t=   8.3s  NORMAL     p=0.07  s=0.07  pose=Y
+t=  11.2s  NORMAL     p=0.00  s=0.00  pose=N
+t=  12.4s  NORMAL     p=0.00  s=0.00  pose=N
+t=  13.7s  NORMAL     p=0.00  s=0.00  pose=Y
+t=  15.5s  NORMAL     p=0.16  s=0.14  pose=Y
+t=  18.8s  NORMAL     p=0.00  s=0.00  pose=N
+t=  20.1s  NORMAL     p=0.00  s=0.00  pose=Y
+t=  21.3s  NORMAL     p=0.00  s=0.00  pose=Y
+t=  25.3s  NORMAL     p=0.01  s=0.02  pose=Y
+t=  29.8s  SUSPECTED  p=0.71  s=0.70  pose=Y
+[FALL CONFIRMED] t=30.5s conf=0.73 snapshot=C:\Users\HP\OneDrive\Documents\Dementia_Care\fall_detection\data\snapshots\2026-09-10\20260910T153614Z_1c9b5def.jpg
+t=  34.9s  COOLDOWN   p=0.59  s=0.70  pose=Y
+t=  40.1s  COOLDOWN   p=0.52  s=0.51  pose=Y
