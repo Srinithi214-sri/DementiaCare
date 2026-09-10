@@ -18,7 +18,7 @@ import argparse
 import zipfile
 from pathlib import Path
 
-DEFAULT_ID = "7w7fcy7ky"
+DEFAULT_ID = "7w7fccy7ky"          # Mendeley DOI 10.17632/7w7fccy7ky.4
 DEFAULT_VERSION = 4
 API = "https://data.mendeley.com/public-api/datasets"
 
