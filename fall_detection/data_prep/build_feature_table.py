@@ -32,8 +32,9 @@ def build_feature_table(
     cfg,
     *,
     target_fps: float | None = None,
+    source_fps: float | None = None,
 ) -> pd.DataFrame:
-    dataset_fps = float(cfg.fps.dataset_fps)
+    dataset_fps = float(source_fps) if source_fps else float(cfg.fps.dataset_fps)
     fps = float(target_fps) if target_fps else dataset_fps
     keep_every = max(1, int(round(dataset_fps / fps))) if target_fps else 1
     eps = float(cfg.features.torso_scale_eps)
@@ -80,6 +81,9 @@ def _main(argv: list[str] | None = None) -> None:
     ap.add_argument("--out", default=None)
     ap.add_argument("--target-fps", type=float, default=None,
                     help="decimate each sequence to roughly this fps before feature computation")
+    ap.add_argument("--source-fps", type=float, default=None,
+                    help="true capture fps of this dataset (overrides fps.dataset_fps; "
+                         "CAUCAFall is 20, URFD is 30) so per-second motion features are correct")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
@@ -87,7 +91,9 @@ def _main(argv: list[str] | None = None) -> None:
     label_df = pd.read_csv(Path(args.labels) if args.labels else interim / "urfd_frame_labels.csv")
     landmark_df = pd.read_csv(Path(args.landmarks) if args.landmarks else interim / "urfd_landmarks.csv")
 
-    df = build_feature_table(label_df, landmark_df, cfg, target_fps=args.target_fps)
+    df = build_feature_table(
+        label_df, landmark_df, cfg, target_fps=args.target_fps, source_fps=args.source_fps
+    )
     out = Path(args.out) if args.out else cfg.path("data_processed") / "urfd_features.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)

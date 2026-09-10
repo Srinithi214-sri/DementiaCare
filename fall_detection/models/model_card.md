@@ -1,76 +1,94 @@
 # Fall detection — model card
 
-Trained 2026-09-10 on the real URFD dataset. **RF is usable; GRU still needs work.**
+Trained 2026-09-10 on **URFD + CAUCAFall**. Both models now usable; RF is the
+safer operating point, GRU has higher recall.
 
 ## Summary
 
 - **Task:** detect that a person has fallen from a single monocular webcam/video feed.
-- **Models:** Random Forest (`rf.joblib`, **primary for now**) + GRU (`gru_ts.pt`, weak).
+- **Models:** Random Forest (`rf.joblib`) + GRU (`gru_ts.pt`, TorchScript).
 - **Feature spec version:** 1.0.0 (`feature_names.json`, `config/feature_spec.yaml`)
-- **Window:** 30 frames, stride 5, trained/evaluated at 30 fps.
+- **Window:** 30 frames, stride 5.
 - **Date / commit:** 2026-09-10, branch `fall-detection`.
 
-## Key fix this round
+## Two fixes that mattered
 
-`data_prep/urfd_adapter.py` used to mark URFD's per-frame "lying down" codes (0/1)
-as the positive class **even inside ADL clips** — so 2,289 ADL frames (e.g. 241
-frames of `adl-35`, someone lying on a sofa) were labelled "fall". Fixed: positive
-= fall-transition frames **from fall sequences only**. RF window precision on the
-test split went 0.52 → 0.74; the sofa false alarm disappeared.
+1. `data_prep/urfd_adapter.py` used to mark URFD's per-frame "lying down" codes
+   (0/1) as positive **even inside ADL clips** — 2,289 ADL frames (incl. 241 of
+   `adl-35`, lying on a sofa) were labelled "fall". Fixed: positive = fall frames
+   **from fall sequences only**.
+2. Added CAUCAFall (10 subjects, 100 clips, proper 720×480). ~4× more training
+   windows and real per-subject grouping. This is what made the GRU work
+   (URFD-only GRU test recall was 0.36; combined it is 0.95).
 
 ## Data
 
-URFD (University of Rzeszów), camera 0 RGB `.mp4` (640×240). 70 sequences
-(30 fall + 40 ADL), 11,094 frames @ 30 fps, pose detected on 69.5%.
+| dataset | clips | frames | fps | pose-detected | subject grouping |
+|---------|-------|--------|-----|---------------|------------------|
+| URFD    | 70 (30 fall + 40 ADL) | 11,094 | 30 | 69.5% | by recording (no actor map) |
+| CAUCAFall | 100 (50 fall + 50 ADL) | 19,877 | 20 | 85.3% | 10 real subjects |
 
-Subject-wise split, **by recording** (URFD ships no actor map):
+Feature tables built at each dataset's **native fps** (per-second motion features
+stay comparable), then concatenated. Split is stratified — URFD and CAUCAFall each
+60/20/20 — so both appear in val and test:
 
-| split | sequences | windows | positive windows |
-|-------|-----------|---------|------------------|
-| train | 42 | 663 | 159 (24%) |
-| val   | 14 | 289 |  34 (12%) |
-| test  | 14 | 266 |  36 (14%) |
+| split | subjects | windows | positive windows |
+|-------|----------|---------|------------------|
+| train | 48 (42 URFD + 6 CAUCA) | 2,411 | 820 (34%) |
+| val   | 16 (14 URFD + 2 CAUCA) |   841 | 217 (26%) |
+| test  | 16 (14 URFD + 2 CAUCA) |   722 | 176 (24%) |
 
-## Results (test split)
+## Results (test split, 16 held-out subjects)
 
-| model | window recall | window precision | F1 | FA/min (ADL) | latency median | fall miss rate |
-|-------|---------------|------------------|----|--------------|----------------|----------------|
-| **RF**  | 0.86 | 0.74 | 0.80 | **0.00** | 0.6 s | **0.33** |
-| GRU     | 0.36 | 0.23 | 0.28 | 9.6 | 0.5 s | 0.50 |
+Window-level:
 
-Event-level, per held-out sequence (real smoother + tuned state machine):
+| model | recall | precision | F1 | FA/min (ADL) | latency median | fall miss rate |
+|-------|--------|-----------|----|--------------|----------------|----------------|
+| RF    | 0.77 | 0.82 | 0.79 | 0.74 | 1.0 s | 0.25 |
+| GRU   | 0.95 | 0.62 | 0.75 | 2.22 | 0.7 s | 0.19 |
 
-| split | fall recall | precision |
-|-------|-------------|-----------|
-| val   | 1.00 (4/4)  | 1.00 |
-| test  | 0.83 (5/6)  | 1.00 (0 false alarms on 8 ADLs) |
+Event-level, per held-out sequence (real smoother + state machine, thresholds
+tuned on val: enter 0.30 / confirm 0.70 / consecutive 2 / EMA alpha 0.4):
 
-Live spot-checks (RF, frame-by-frame): fall-09 ✅, fall-17 ✅ (was missed),
-fall-05 ❌ miss, adl-35 sofa ✅ correctly ignored (was a false alarm), adl-06 ✅.
+| model | val recall / precision | test recall / precision |
+|-------|------------------------|-------------------------|
+| RF    | 0.93 / 1.00 | 0.81 / 0.93  (13 tp, 1 fp, 3 fn) |
+| GRU   | 0.93 / 0.76 | 0.88 / 0.82  (14 tp, 3 fp, 2 fn) |
 
-## Live configuration (tuned on val, 2026-09-10)
+RF trades ~1 fall for near-zero false alarms; GRU catches more falls at ~3 false
+alarms across 16 subjects' ADL clips. `config/default.yaml` ships the tuned
+state-machine thresholds; `FallDetector` runs the GRU.
 
-`smoothing.ema alpha=0.4`; `state_machine`: enter 0.40 / confirm 0.60 /
-confirm_consecutive 2 / clear 0.30. Operating threshold: RF 0.565.
+## Reproduce
+
+```
+python -m fall_detection.data_prep.urfd_adapter
+python -m fall_detection.data_prep.pose_extraction
+python -m fall_detection.data_prep.caucafall_adapter
+python -m fall_detection.data_prep.pose_extraction \
+    --labels data/interim/caucafall_frame_labels.csv \
+    --out    data/interim/caucafall_landmarks.csv
+python -m fall_detection.data_prep.build_combined          # merge + split + scaler + windows
+python -m fall_detection.training.rf_train
+python -m fall_detection.training.gru_train
+python -m fall_detection.training.export_torchscript
+python -m fall_detection.evaluation.evaluate --features data/processed/combined_features.csv
+```
 
 ## Known limitations
 
-- **GRU is not usable — needs more data.** Config was tuned for the small set
-  (hidden 32, dropout 0.2, balanced sampler, lr 5e-4, 120 epochs, min_precision
-  0.6). Val separates (pos 0.84 / neg 0.33) but **test does not** (pos 0.65 / neg
-  0.43; 40% of ADL windows score >0.5) — it over-fits the 42 training recordings.
-  Hyperparameter tuning cannot close this; CAUCAFall (or more URFD-style data) can.
-  RF (window stats + `class_weight="balanced"`) generalises far better on this set.
-- The live `FallDetector` runs the GRU, so **live inference currently inherits the
-  GRU's weakness**. Until the GRU improves, evaluate/deploy via the RF path.
-- Tiny test set (6 falls, 8 ADLs) — numbers are indicative, not definitive.
-- `fall-05` missed: MediaPipe loses the pose through the fall.
-- MediaPipe pose only 69% (640×240 anamorphic mp4; prone/occluded after impact).
+- Still a small test set (16 subjects, ~30 fall sequences) — numbers are
+  indicative. CAUCAFall subjects and URFD recordings differ in camera, framing,
+  and fall style.
+- MediaPipe still misses the pose through some falls (URFD 640×240 especially) —
+  those windows are forced to probability 0.
+- GRU output is poorly calibrated (operating threshold 0.04); rely on the state
+  machine, not the raw probability.
 - Single camera, single person, staged indoor falls only. Not a medical device.
 
 ## Next steps
 
-1. Add CAUCAFall (`fetch_caucafall`; adapter needs rewriting for its YOLO-txt format)
-   — 2–3× more data, more ADL variety.
-2. Fix the GRU: sampler + more epochs, re-tune its threshold and the state machine.
-3. Full-res RGB frames (`fetch_urfd --rgb-zip`) to lift pose detection ~69% → ~85%.
+1. Full-res URFD RGB frames (`fetch_urfd --rgb-zip`) — lift pose detection ~69% → ~85%.
+2. GRU calibration (temperature scaling in `export_torchscript`).
+3. More ADL hard-negatives (bending, crouching, sitting fast).
+4. Per-camera evaluation once a third dataset is added.

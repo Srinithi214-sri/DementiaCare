@@ -26,13 +26,13 @@ dataset:
     # When absent, each sequence is treated as its own subject.
     subjects_csv: config/urfd_subjects.csv
   caucafall:
-    # Optional second dataset (see data_prep/caucafall_adapter.py). Column names
-    # vary by mirror - adjust to match your copy.
+    # Optional second dataset (Mendeley 10.17632/7w7fccy7ky.4). Layout:
+    #   <root>/Subject.<n>/<Activity>/<name><frame>.txt  (YOLO: "cls cx cy w h")
+    #                                 classes.txt         (0=nofall, 1=fall)
+    #                                 <Activity>S<n>.avi
+    # data_prep/caucafall_adapter.py reads the per-frame YOLO class; a frame is
+    # positive when class==1 AND the activity is one of the five "Fall ..." ones.
     root: data/raw/caucafall
-    frame_col: Frame
-    label_col: Class
-    fall_labels: [Fall, Lying]
-    subject_from: folder
 
 pose:
   # MediaPipe Tasks PoseLandmarker. complexity 0/1/2 -> lite/full/heavy .task model.
@@ -95,10 +95,10 @@ smoothing:
   k: 5                                # moving_average window
 
 state_machine:
-  # Tuned 2026-09-10 on the URFD val split (RF, EMA alpha 0.4) after the ADL
-  # mislabelling fix. val recall/precision 1.00/1.00; test 0.83/1.00.
-  enter_suspected: 0.40
-  confirm: 0.60
+  # Tuned 2026-09-10 on the URFD+CAUCAFall val split (EMA alpha 0.4).
+  # RF: val 0.93/1.00, test 0.81/0.93.  GRU: val 0.93/0.76, test 0.88/0.82.
+  enter_suspected: 0.30
+  confirm: 0.70
   confirm_consecutive: 2
   clear: 0.30
   suspected_timeout_s: 3.0

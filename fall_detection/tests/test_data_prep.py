@@ -10,6 +10,7 @@ from fall_detection.common.paths import load_config
 from fall_detection.data_prep import pose_extraction
 from fall_detection.data_prep.build_feature_table import build_feature_table
 from fall_detection.data_prep.urfd_adapter import build_frame_label_table
+from fall_detection.data_prep import caucafall_adapter
 from fall_detection.features.extract import sequence_feature_matrix
 from fall_detection.features.schema import FEATURE_NAMES, RAW_LANDMARK_COLUMNS
 
@@ -41,6 +42,44 @@ def test_urfd_adapter_labels_and_subjects(tmp_path, cfg):
     assert (df[df.kind == "adl"]["label"] == 0).all()
     assert df[df.sequence_id == "fall-02"]["subject_id"].iloc[0] == "s1"
     assert df[df.sequence_id == "adl-01"]["subject_id"].iloc[0] == "s2"
+
+
+def _write_cauca_clip(root, subject, activity, classes):
+    """classes: list of per-frame YOLO class ids (0 nofall / 1 fall)."""
+    d = root / subject / activity
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "classes.txt").write_text("nofall\nfall\n")
+    (d / f"{activity.replace(' ', '')}{subject}.avi").write_bytes(b"")
+    for i, c in enumerate(classes, start=1):
+        (d / f"cas{i:05d}.txt").write_text(f"{c} 0.3 0.5 0.2 0.4\n")
+
+
+def test_caucafall_adapter_labels(tmp_path, cfg):
+    root = tmp_path / "caucafall"
+    _write_cauca_clip(root, "Subject.1", "Fall backwards", [0, 0, 1, 1, 1])
+    _write_cauca_clip(root, "Subject.1", "Walk", [0, 0, 0])          # ADL, all upright
+    _write_cauca_clip(root, "Subject.2", "Kneel", [0, 1, 0])         # ADL: class 1 must NOT count
+    cfg.dataset.caucafall.root = str(root)
+
+    df = caucafall_adapter.build_frame_label_table(cfg)
+
+    assert list(df.columns) == [
+        "subject_id", "sequence_id", "frame_idx", "label", "kind", "source_label"
+    ]
+    fall = df[df.sequence_id == "cauca__Subject.1__Fall backwards"].sort_values("frame_idx")
+    assert fall["label"].tolist() == [0, 0, 1, 1, 1]
+    assert fall["frame_idx"].tolist() == [1, 2, 3, 4, 5]          # classes.txt excluded
+    assert (df[df.kind == "adl"]["label"] == 0).all()              # incl. the Kneel class-1 frame
+    assert set(df["subject_id"]) == {"cauca-Subject.1", "cauca-Subject.2"}
+
+
+def test_caucafall_source_for_sequence_roundtrips(tmp_path, cfg):
+    root = tmp_path / "caucafall"
+    _write_cauca_clip(root, "Subject.3", "Fall left", [1])
+    cfg.dataset.caucafall.root = str(root)
+    src = caucafall_adapter.source_for_sequence(cfg, "cauca__Subject.3__Fall left")
+    assert src is not None and src.suffix == ".avi" and src.exists()
+    assert caucafall_adapter.source_for_sequence(cfg, "cauca__Nope__Nope") is None
 
 
 def test_urfd_adapter_defaults_subject_to_sequence(tmp_path, cfg):

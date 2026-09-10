@@ -2,32 +2,36 @@
 
 Output columns: ``subject_id, sequence_id, frame_idx, label, kind, source_label``.
 
-CAUCAFall is organised per subject, with one folder per activity clip and a
-per-clip CSV of per-frame annotations. The exact column names vary by mirror, so
-the mapping is configurable via ``dataset.caucafall`` in the config:
+CAUCAFall (Universidad del Cauca, Mendeley 10.17632/7w7fccy7ky.4) is organised as::
 
-    dataset:
-      caucafall:
-        root: data/raw/caucafall
-        frame_col: "Frame"           # column with the frame number
-        label_col: "Class"           # column with the activity / state label
-        fall_labels: ["Fall", "Lying"]   # label values that count as the fall class
-        subject_from: "folder"       # 'folder' -> parent dir name is the subject id
+    <root>/Subject.<n>/<Activity>/
+        <name><frame>.txt      one YOLO line per frame: "cls cx cy w h"
+        classes.txt            the class map: line 0 = "nofall", line 1 = "fall"
+        <Activity>S<n>.avi     the RGB clip (720x480, 20 fps)
 
-Point ``build_frame_label_table`` at the CAUCAFall root, then run the same
-pose-extraction / feature-table / split / window / train steps as for URFD.
+There is one folder per (subject, activity); 10 subjects x 10 activities. The five
+"Fall ..." activities are the positive class, the other five (Walk, Hop, Kneel,
+Sit down, Pick up object) are ADLs. Per frame, YOLO class ``1`` (== "fall") marks
+the subject as fallen; class ``0`` ("nofall") is upright/moving. A frame is
+positive only when it is class ``1`` **and** in a fall activity.
+
+``sequence_id`` is ``cauca__Subject.<n>__<Activity>`` (double-underscore separated,
+original names kept) so ``pose_extraction`` can map it straight back to the folder.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pandas as pd
 
 from ..common.paths import PACKAGE_ROOT
 
-_FALL_DIR = re.compile(r"fall", re.IGNORECASE)
+_FALL_ACTIVITIES = {
+    "fall backwards", "fall forward", "fall left", "fall right", "fall sitting",
+}
+_POSITIVE_TOKENS = {"1", "fall"}
+SEQ_PREFIX = "cauca"
 
 
 def _resolve(value: str) -> Path:
@@ -35,50 +39,63 @@ def _resolve(value: str) -> Path:
     return p if p.is_absolute() else (PACKAGE_ROOT / p)
 
 
-def _clip_csv(clip_dir: Path) -> Path | None:
-    for pattern in ("*.csv", "Label*.csv", "label*.csv"):
-        hits = sorted(clip_dir.glob(pattern))
-        if hits:
-            return hits[0]
-    return None
+def _frame_label(txt_path: Path) -> int:
+    """1 if any YOLO line in the file marks the subject fallen, else 0."""
+    try:
+        lines = [ln for ln in txt_path.read_text(errors="replace").splitlines() if ln.strip()]
+    except OSError:
+        return 0
+    label = 0
+    for ln in lines:
+        tok = ln.split()[0].strip().lower()
+        if tok in _POSITIVE_TOKENS:
+            label = 1
+    return label
+
+
+def activity_dirs(root: Path):
+    for subj in sorted(p for p in root.glob("Subject.*") if p.is_dir()):
+        for act in sorted(p for p in subj.iterdir() if p.is_dir()):
+            yield subj, act
+
+
+def source_for_sequence(cfg, sequence_id: str) -> Path | None:
+    """Reverse ``cauca__Subject.N__<Activity>`` -> the clip's .avi path."""
+    parts = sequence_id.split("__")
+    if len(parts) != 3 or parts[0] != SEQ_PREFIX:
+        return None
+    root = _resolve(cfg.dataset.caucafall.root)
+    clip_dir = root / parts[1] / parts[2]
+    if not clip_dir.is_dir():
+        return None
+    avis = sorted(clip_dir.glob("*.avi"))
+    return avis[0] if avis else None
 
 
 def build_frame_label_table(cfg) -> pd.DataFrame:
-    cf = cfg.dataset.caucafall
-    root = _resolve(cf.root)
+    root = _resolve(cfg.dataset.caucafall.root)
     if not root.exists():
         raise FileNotFoundError(f"CAUCAFall root not found: {root}")
 
-    frame_col = getattr(cf, "frame_col", "Frame")
-    label_col = getattr(cf, "label_col", "Class")
-    fall_labels = {str(v).lower() for v in getattr(cf, "fall_labels", ["fall"])}
-
     rows = []
-    for clip_dir in sorted(p for p in root.glob("**/*") if p.is_dir()):
-        csv = _clip_csv(clip_dir)
-        if csv is None:
-            continue
-        subject_id = clip_dir.parent.name
-        sequence_id = f"{subject_id}__{clip_dir.name}".replace(" ", "_")
-        kind = "fall" if _FALL_DIR.search(clip_dir.name) else "adl"
+    for subj, act in activity_dirs(root):
+        activity = act.name
+        kind = "fall" if activity.strip().lower() in _FALL_ACTIVITIES else "adl"
+        subject_id = f"{SEQ_PREFIX}-{subj.name}"
+        sequence_id = f"{SEQ_PREFIX}__{subj.name}__{activity}"
 
-        ann = pd.read_csv(csv)
-        cols = {c.lower(): c for c in ann.columns}
-        fcol = cols.get(frame_col.lower(), ann.columns[0])
-        lcol = cols.get(label_col.lower())
-
-        for i, r in ann.iterrows():
-            frame_idx = int(r[fcol]) if pd.notna(r[fcol]) else int(i) + 1
-            src = str(r[lcol]).strip() if lcol is not None and pd.notna(r[lcol]) else ""
-            label = int(src.lower() in fall_labels) if src else int(kind == "fall")
+        frame_txts = sorted(p for p in act.glob("*.txt") if p.name != "classes.txt")
+        for frame_idx, txt in enumerate(frame_txts, start=1):
+            fallen = _frame_label(txt)
+            label = int(fallen and kind == "fall")
             rows.append(
                 dict(
-                    subject_id=str(subject_id),
+                    subject_id=subject_id,
                     sequence_id=sequence_id,
                     frame_idx=frame_idx,
                     label=label,
                     kind=kind,
-                    source_label=src,
+                    source_label=("fall" if fallen else "nofall"),
                 )
             )
 
@@ -101,7 +118,9 @@ def _main(argv: list[str] | None = None) -> None:
     out = Path(args.out) if args.out else cfg.path("data_interim") / "caucafall_frame_labels.csv"
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
-    print(f"wrote {len(df):,} rows, {df['subject_id'].nunique()} subjects -> {out}")
+    pos = int((df["label"] == 1).sum())
+    print(f"wrote {len(df):,} rows ({pos:,} positive) across {df['subject_id'].nunique()} "
+          f"subjects, {df['sequence_id'].nunique()} sequences -> {out}")
 
 
 if __name__ == "__main__":

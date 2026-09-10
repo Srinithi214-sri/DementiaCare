@@ -31,6 +31,11 @@ def _resolve(value: str) -> Path:
 
 def find_sequence_source(cfg, sequence_id: str, kind: str) -> Path | None:
     """Locate a sequence's frames: a ``*-rgb`` PNG directory or a video file."""
+    if sequence_id.startswith("cauca__"):
+        from .caucafall_adapter import source_for_sequence
+
+        return source_for_sequence(cfg, sequence_id)
+
     root = _resolve(cfg.dataset.urfd.root)
     camera = cfg.dataset.urfd.camera
     subdir = "falls" if kind == "fall" else "adl"

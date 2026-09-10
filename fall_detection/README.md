@@ -42,8 +42,15 @@ in `config/default.yaml` points at the running API (`http://localhost:8000`).
 ```bash
 python -m fall_detection.data_prep.fetch_urfd            # URFD cam0 videos + annotations
 python -m fall_detection.data_prep.fetch_urfd --limit 4  # quick subset for a dry run
-python -m fall_detection.data_prep.fetch_caucafall       # optional 2nd dataset (~3 GB, Mendeley)
+python -m fall_detection.data_prep.fetch_caucafall       # 2nd dataset (~8 GB zip, Mendeley)
 ```
+
+CAUCAFall (Mendeley `10.17632/7w7fccy7ky.4`) is worth adding — combined with URFD
+it roughly quadruples the training windows and is what makes the GRU generalise.
+Mendeley sits behind Cloudflare, so if the fetcher 403s: download "Download All"
+from the [dataset page](https://data.mendeley.com/datasets/7w7fccy7ky/4) in a
+browser and extract only the `.avi` + `.txt` files (skip the `.png` frames, ~90%
+of the size) to `fall_detection/data/raw/caucafall/Subject.<n>/<Activity>/`.
 
 The URFD host (`fenix.ur.edu.pl`) is slow and sometimes throttles - the fetcher
 retries and resumes, so just re-run it if it stops. If automated download fails,
@@ -77,12 +84,30 @@ python -m fall_detection.data_prep.build_feature_table    # -> data/processed/ur
 # add --target-fps 15 to build_feature_table to match a ~15 fps webcam
 ```
 
+CAUCAFall too (it is 20 fps, so pass `--source-fps 20` when building its table):
+
+```bash
+python -m fall_detection.data_prep.caucafall_adapter      # -> data/interim/caucafall_frame_labels.csv
+python -m fall_detection.data_prep.pose_extraction \
+    --labels data/interim/caucafall_frame_labels.csv \
+    --out    data/interim/caucafall_landmarks.csv
+```
+
 ## 3. Split + scale + window
+
+**URFD only:**
 
 ```bash
 python -m fall_detection.splits.subject_split            # -> data/processed/splits.json
 python -m fall_detection.training.scaler                 # -> models/scaler.joblib
 python -m fall_detection.windowing.windows               # -> data/processed/windows_{train,val,test}.npz
+```
+
+**URFD + CAUCAFall** (builds both feature tables at native fps, merges, stratifies
+the split so both datasets land in val/test, then scales + windows):
+
+```bash
+python -m fall_detection.data_prep.build_combined         # -> combined_features.csv, splits.json, scaler, windows
 ```
 
 Set explicit `split.test_subjects` / `split.val_subjects` in `config/default.yaml`
