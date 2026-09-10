@@ -1,0 +1,16 @@
+sequence_id,subject_id
+# Optional: map each URFD sequence to the person who performed it, so the
+# subject-wise split keeps one actor entirely in train OR val OR test.
+#
+# URFD ships no official actor mapping. Fill this in if you know it (e.g. from
+# recording notes). Any sequence not listed here defaults to subject_id = its
+# own sequence_id, which is still safe for a by-recording split.
+#
+# Lines starting with '#' and blank lines are ignored by pandas.read_csv only if
+# you pass comment='#'; the adapter reads the first two columns by name, so keep
+# real rows below without leading '#'.
+#
+# example:
+# fall-01,subjectA
+# fall-02,subjectA
+# adl-01,subjectB
