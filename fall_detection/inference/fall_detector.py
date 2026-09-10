@@ -45,10 +45,12 @@ class FallDetector:
         pose_backend=None,
         model=None,
         scaler_bundle: dict | None = None,
+        backend: str = "gru",
         deliver: bool = True,
     ) -> None:
         self.cfg = cfg or load_config(config_path)
         self.deliver = bool(deliver)
+        self.backend = backend
         models_dir = Path(self.cfg.path("models_dir"))
 
         # feature order contract
@@ -62,6 +64,10 @@ class FallDetector:
 
         if model is not None:
             self.model = model
+        elif backend == "rf":
+            from ..training.rf_train import load_rf
+
+            self.model = load_rf(models_dir / "rf.joblib")
         else:
             import torch
 
@@ -101,6 +107,12 @@ class FallDetector:
         window = self.feat.window()
         if window is None or self.feat.undetected_in_window > int(self.cfg.window.max_undetected):
             return 0.0
+
+        if self.backend == "rf":
+            from ..training.rf_train import predict_proba as rf_predict_proba
+
+            return float(rf_predict_proba(self.model, window[None].astype(np.float64))[0])
+
         import torch
 
         scaled = scaler_transform(self.scaler_bundle, window)[None].astype(np.float32)
