@@ -55,9 +55,14 @@ confirm_consecutive 2 / clear 0.30. Operating threshold: RF 0.565.
 
 ## Known limitations
 
-- **GRU is not usable** — only 159 positive training windows; picks an early epoch,
-  over-fires. Needs `gru.use_sampler: true`, more epochs, LR/dropout tuning, or more
-  data. RF (window stats + `class_weight="balanced"`) handles the small set far better.
+- **GRU is not usable — needs more data.** Config was tuned for the small set
+  (hidden 32, dropout 0.2, balanced sampler, lr 5e-4, 120 epochs, min_precision
+  0.6). Val separates (pos 0.84 / neg 0.33) but **test does not** (pos 0.65 / neg
+  0.43; 40% of ADL windows score >0.5) — it over-fits the 42 training recordings.
+  Hyperparameter tuning cannot close this; CAUCAFall (or more URFD-style data) can.
+  RF (window stats + `class_weight="balanced"`) generalises far better on this set.
+- The live `FallDetector` runs the GRU, so **live inference currently inherits the
+  GRU's weakness**. Until the GRU improves, evaluate/deploy via the RF path.
 - Tiny test set (6 falls, 8 ADLs) — numbers are indicative, not definitive.
 - `fall-05` missed: MediaPipe loses the pose through the fall.
 - MediaPipe pose only 69% (640×240 anamorphic mp4; prone/occluded after impact).

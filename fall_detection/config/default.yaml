@@ -76,15 +76,17 @@ rf:
   threshold: null                    # filled in by training
 
 gru:
-  hidden: 64
+  # Tuned 2026-09-10 for the small URFD window set (~159 positive train windows):
+  # smaller net + dropout + balanced sampler + lower LR + more epochs.
+  hidden: 32
   num_layers: 1
-  dropout: 0.0
-  lr: 1.0e-3
-  epochs: 40
+  dropout: 0.2
+  lr: 5.0e-4
+  epochs: 120
   batch_size: 64
   grad_clip: 5.0
-  use_sampler: false                 # false -> BCEWithLogitsLoss(pos_weight)
-  min_precision: 0.50                # pick epoch with best recall s.t. precision >= this
+  use_sampler: true                  # balanced batches (WeightedRandomSampler)
+  min_precision: 0.60                # pick epoch with best recall s.t. precision >= this
   threshold: null                    # filled in by training
 
 smoothing:
