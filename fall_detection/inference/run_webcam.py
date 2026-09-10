@@ -30,6 +30,8 @@ def _main(argv: list[str] | None = None) -> None:
                     help="which trained model to run (rf is the higher-precision one)")
     ap.add_argument("--no-deliver", action="store_true", help="do not POST events to the backend")
     ap.add_argument("--no-display", action="store_true")
+    ap.add_argument("--log", action="store_true",
+                    help="print state + probability roughly once a second (for threshold tuning)")
     args = ap.parse_args(argv)
 
     cfg = load_config(args.config)
@@ -56,6 +58,9 @@ def _main(argv: list[str] | None = None) -> None:
             if res.event is not None:
                 print(f"[FALL CONFIRMED] t={ts:.1f}s conf={res.smoothed:.2f} "
                       f"delivery={res.delivery} snapshot={res.event.snapshot_path}")
+            if args.log and frame_idx % max(1, int(round(fps))) == 0:
+                print(f"t={ts:5.1f}s  {res.state:9s}  p={res.probability:.2f}  "
+                      f"s={res.smoothed:.2f}  pose={'Y' if res.detected else 'N'}")
 
             if not args.no_display:
                 color = _STATE_COLOR.get(res.state, (255, 255, 255))
