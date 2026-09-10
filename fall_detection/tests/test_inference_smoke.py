@@ -112,9 +112,18 @@ def test_single_burst_delivers_exactly_one_event(cfg, falling_sequence, _no_netw
     assert ev.meta["model"] == "gru"
     assert len(_no_network) == 1                           # send_event called once
 
+    import json
     from pathlib import Path
 
-    assert Path(ev.snapshot_path).exists()                 # snapshot written
+    snap = Path(ev.snapshot_path)
+    assert snap.exists()                                   # snapshot written
+    assert snap.name.startswith(ev.timestamp.strftime("%Y%m%dT%H%M%SZ"))  # UTC time in filename
+
+    log = Path(cfg.path("snapshots_dir")) / "fall_events.jsonl"
+    rows = [json.loads(ln) for ln in log.read_text().splitlines() if ln.strip()]
+    assert len(rows) == 1
+    assert rows[0]["timestamp"] == ev.model_dump(mode="json")["timestamp"]
+    assert rows[0]["snapshot_path"] == ev.snapshot_path
 
     confirmed = [r for r in results if r.state == "CONFIRMED"]
     assert len(confirmed) == 1

@@ -173,10 +173,27 @@ Everything tunable lives in [`config/default.yaml`](config/default.yaml). Pass
 `--config path/to/other.yaml` to any CLI. Feature meanings are documented in
 [`config/feature_spec.yaml`](config/feature_spec.yaml).
 
+## Fall records
+
+Every confirmed fall writes, locally, regardless of backend delivery:
+
+```
+data/snapshots/<YYYY-MM-DD>/<YYYYMMDDThhmmssZ>_<id8>.jpg   the triggering frame
+data/snapshots/fall_events.jsonl                           one JSON line per fall
+```
+
+The snapshot filename is the UTC fall time, so `ls` sorts chronologically. Each
+`fall_events.jsonl` line is the full `FallEvent`:
+
+```json
+{"type":"fall","timestamp":"2026-09-10T15:27:38.680Z","confidence":0.74,
+ "source":"fall_detector","snapshot_path":"...jpg",
+ "meta":{"model":"rf","event_id":"...","fps":15.0,"suspected_to_confirmed_s":0.43}}
+```
+
 ## Backend integration
 
-`inference/events_client.py` POSTs `FallEvent` (`type="fall"`, UTC `timestamp`,
-`confidence`, `source="fall_detector"`, `snapshot_path`, `meta`) to
+`inference/events_client.py` also POSTs that `FallEvent` to
 `{backend.base_url}/events`. On any failure it inserts directly into the
 `dementiacare.events` MongoDB collection; on double failure it logs and drops (never
 raises into the capture loop). The only backend change this subsystem required is

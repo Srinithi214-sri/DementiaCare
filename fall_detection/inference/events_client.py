@@ -39,6 +39,7 @@ def make_fall_event(
     *,
     model: str = "gru",
     extra_meta: dict[str, Any] | None = None,
+    timestamp: datetime | None = None,
 ) -> FallEvent:
     meta: dict[str, Any] = {
         "model": model,
@@ -47,7 +48,7 @@ def make_fall_event(
     if extra_meta:
         meta.update(extra_meta)
     return FallEvent(
-        timestamp=datetime.now(timezone.utc),
+        timestamp=timestamp or datetime.now(timezone.utc),
         confidence=float(confidence),
         snapshot_path=str(snapshot_path),
         meta=meta,

@@ -147,13 +147,17 @@ class FallDetector:
         return result
 
     def _emit(self, frame_bgr, smoothed: float, ts: float):
+        from datetime import datetime, timezone
+
+        when = datetime.now(timezone.utc)
         event_id = uuid4().hex
-        snapshot_path = save_snapshot(frame_bgr, event_id, self.cfg)
+        snapshot_path = save_snapshot(frame_bgr, event_id, self.cfg, when=when)
         latency_s = (ts - self._suspected_since) if self._suspected_since is not None else None
         event = make_fall_event(
             smoothed,
             snapshot_path,
-            model="gru",
+            model=self.backend,
+            timestamp=when,
             extra_meta={
                 "event_id": event_id,
                 "fps": float(self.cfg.fps.assumed_webcam_fps),
@@ -161,5 +165,16 @@ class FallDetector:
                 "suspected_to_confirmed_s": latency_s,
             },
         )
+        self._append_event_log(event)
         delivery = send_event(event, self.cfg) if self.deliver else None
         return event, delivery
+
+    def _append_event_log(self, event) -> None:
+        """One JSON line per confirmed fall: time, confidence, snapshot path, meta."""
+        log_path = Path(self.cfg.path("snapshots_dir")) / "fall_events.jsonl"
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(log_path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(event.model_dump(mode="json")) + "\n")
+        except OSError:
+            pass  # never break the capture loop over a log write
