@@ -97,7 +97,9 @@ smoothing:
 state_machine:
   # Tuned 2026-09-10 on the URFD+CAUCAFall val split (EMA alpha 0.4).
   # RF: val 0.93/1.00, test 0.81/0.93.  GRU: val 0.93/0.76, test 0.88/0.82.
-  enter_suspected: 0.30
+  # enter_suspected raised 0.30 -> 0.35 after a live webcam session where normal
+  # sitting/walking peaked ~0.40 (fall confirmed at 0.75, non-fall low hit 0.63).
+  enter_suspected: 0.35
   confirm: 0.70
   confirm_consecutive: 2
   clear: 0.30
