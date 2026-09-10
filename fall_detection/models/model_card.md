@@ -57,7 +57,23 @@ tuned on val: enter 0.30 / confirm 0.70 / consecutive 2 / EMA alpha 0.4):
 
 RF trades ~1 fall for near-zero false alarms; GRU catches more falls at ~3 false
 alarms across 16 subjects' ADL clips. `config/default.yaml` ships the tuned
-state-machine thresholds; `FallDetector` runs the GRU.
+state-machine thresholds (enter 0.35 / confirm 0.70 / consecutive 2).
+`FallDetector` runs the GRU by default; pass `backend="rf"` (or
+`run_webcam --model rf`) for the higher-precision path.
+
+## Live webcam test (2026-09-10, RF, wall-mounted camera ~3 m, wide room)
+
+One ~3-minute session: walk, sit/stand, crouch, one fall to a floor mat.
+
+- Walking p ≤ 0.20; sitting/standing/crouching p ≤ 0.41 — **no false CONFIRMED**.
+- The fall CONFIRMED at smoothed 0.75, snapshot saved.
+- One non-fall low move (onto a sofa) reached smoothed 0.63 — held, ~0.12 margin.
+- While lying motionless afterwards MediaPipe drops the pose (`p=0.00`) — the fall
+  event already fired, but "still down after N minutes" cannot be detected.
+
+Off-distribution vs the training cameras (falls score ~0.75 here vs ~0.9 on the
+datasets), so the margin is thinner than the dataset numbers suggest. Camera
+placement matters a lot: a low/close camera on a bed scored the same fall ~0.42.
 
 ## Reproduce
 
