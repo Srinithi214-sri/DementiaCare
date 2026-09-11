@@ -1,0 +1,67 @@
+# Human-readable companion to fall_detection/features/schema.py.
+# The authoritative ordered list lives in schema.FEATURE_NAMES; this file documents
+# meaning/units and carries the version that must match features.feature_spec_version.
+
+feature_spec_version: "1.0.0"
+
+coordinate_frame: >
+  MediaPipe Pose normalized image coordinates (x,y in [0,1], origin top-left, y down),
+  z roughly in torso-length units. Landmarks are re-normalized before use: translated
+  so mid-hip = origin and scaled by torso length = ||mid_shoulder - mid_hip||.
+
+landmark_indices:
+  nose: 0
+  left_shoulder: 11
+  right_shoulder: 12
+  left_hip: 23
+  right_hip: 24
+  left_ankle: 27
+  right_ankle: 28
+
+static_features:
+  - name: "lm00_x .. lm32_vis"
+    count: 132
+    desc: "Normalized 33 landmarks: x, y, z, visibility per landmark (visibility passed through raw)."
+  - name: trunk_angle
+    unit: radians
+    desc: "Angle between the mid-hip -> mid-shoulder vector and vertical (0,-1). ~0 upright, ~pi/2 horizontal."
+  - name: bbox_w
+    desc: "Width of the normalized-landmark bounding box."
+  - name: bbox_h
+    desc: "Height of the normalized-landmark bounding box."
+  - name: bbox_ratio
+    desc: "bbox_w / bbox_h. Rises sharply when a person goes horizontal."
+  - name: centroid_x
+    desc: "Mean x of all normalized landmark positions."
+  - name: centroid_y
+    desc: "Mean y of all normalized landmark positions."
+  - name: nose_x
+    desc: "Normalized nose x."
+  - name: nose_y
+    desc: "Normalized nose y (drops toward the floor during a fall)."
+  - name: ankle_x
+    desc: "Mean normalized x of the two ankles."
+  - name: ankle_y
+    desc: "Mean normalized y of the two ankles."
+  - name: hip_ankle_vdist
+    desc: "Vertical distance from mid-hip to mean-ankle in normalized units (collapses when lying down)."
+
+dynamic_features:
+  units: per_second           # computed from real frame dt, not frame counts
+  - name: centroid_vx
+    desc: "Centroid x velocity from the last two centroids."
+  - name: centroid_vy
+    desc: "Centroid y velocity from the last two centroids."
+  - name: centroid_speed
+    desc: "Magnitude of the centroid velocity."
+  - name: centroid_ax
+    desc: "Centroid x acceleration from the last three centroids."
+  - name: centroid_ay
+    desc: "Centroid y acceleration (spikes downward during the fall impact)."
+  - name: centroid_accel_mag
+    desc: "Magnitude of the centroid acceleration."
+
+edge_behavior:
+  first_frame: "velocity block = 0"
+  first_two_frames: "acceleration block = 0"
+  no_detection: "entire static block = 0, detected flag = False"

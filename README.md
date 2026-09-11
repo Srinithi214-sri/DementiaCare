@@ -55,6 +55,14 @@ Ensure you have the following installed on your system:
    ```
    *The FastAPI server will typically run on `http://localhost:8000`. You can access the automatic interactive API documentation at `http://localhost:8000/docs`.*
 
+   > **Note:** `main.py` currently lives at the repository root (not in `backend/`), and it imports `config.db` / `models.event`, which resolve only when `backend/` is on the Python path. Until that is tidied up (see `fall_detection/FOLLOWUPS.md`), start the API from the repo root with:
+   > ```bash
+   > # from the repository root
+   > PYTHONPATH=backend uvicorn main:app --reload      # bash
+   > $env:PYTHONPATH="backend"; uvicorn main:app --reload   # PowerShell
+   > ```
+   > A `.env` file at the repo root must define `MONGO_URI` (and `GEMINI_API_KEY` if used).
+
 3. **Frontend Setup:**
    Open a new terminal window, navigate to the frontend directory, install the required NPM packages, and start the development server:
    ```bash
@@ -72,16 +80,35 @@ Ensure you have the following installed on your system:
 DementiaCare/
 ├── backend/                  # FastAPI backend application
 │   ├── config/               # Database and app configurations
-│   ├── models/               # Data models
+│   ├── models/               # Data models (event.py: the Event schema)
 │   ├── routes/               # API endpoints
-│   ├── main.py               # FastAPI application entry point
 │   └── requirements.txt      # Python dependencies
+├── main.py                   # FastAPI application entry point (repo root)
+├── fall_detection/           # AI fall-detection subsystem (webcam -> /events)
+│   ├── config/               # parameters + feature spec
+│   ├── common/ features/     # shared pose wrapper + feature extraction
+│   ├── data_prep/ splits/ windowing/   # URFD -> feature table -> windows
+│   ├── training/ evaluation/ # Random Forest + GRU + subject-wise metrics
+│   ├── inference/            # FallDetector, state machine, events client, run_webcam
+│   └── tests/                # pytest suite (no webcam/DB/GPU needed)
 └── frontend/                 # React frontend application
     ├── src/                  # React components and source code
     ├── index.html            # Main HTML file
     ├── package.json          # Node.js dependencies and scripts
     └── vite.config.js        # Vite configuration
 ```
+
+## 🚑 Fall Detection
+
+`fall_detection/` adds an optional AI fall-detection process: a webcam feed is run
+through MediaPipe Pose, engineered pose/movement features are collected into short
+temporal windows, a GRU (Random Forest baseline) estimates fall probability, a
+smoother + `NORMAL → SUSPECTED → CONFIRMED → COOLDOWN` state machine confirms real
+falls, and a confirmed fall is POSTed to `/events` (with a direct-MongoDB fallback).
+
+It runs on a CPU laptop and is trained on the [UR Fall Detection Dataset](http://fenix.ur.edu.pl/~mkepski/ds/uf.html).
+See [`fall_detection/README.md`](fall_detection/README.md) for the full setup and
+training/inference runbook.
 
 ## 🤝 Contributing
 

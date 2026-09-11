@@ -1,0 +1,123 @@
+# Single source of truth for every fall-detection parameter.
+# Paths are resolved relative to the fall_detection/ package root by common/paths.py
+# unless they are absolute.
+
+paths:
+  data_raw: data/raw
+  data_interim: data/interim
+  data_processed: data/processed
+  models_dir: models
+  snapshots_dir: data/snapshots
+  reports_dir: data/reports
+  checkpoints_dir: data/interim/checkpoints
+
+seed: 1337
+
+dataset:
+  urfd:
+    root: data/raw/urfd
+    falls_annotation: data/raw/urfd/annotations/urfall-cam0-falls.csv
+    adl_annotation: data/raw/urfd/annotations/urfall-cam0-adls.csv
+    camera: cam0
+    # URFD per-frame label: -1 = upright, 0 = falling/transition, 1 = lying on ground.
+    # These URFD labels map to the positive (fall) class; everything else is negative.
+    positive_urfd_labels: [0, 1]
+    # Optional CSV (sequence_id,subject_id) to group same-actor sequences.
+    # When absent, each sequence is treated as its own subject.
+    subjects_csv: config/urfd_subjects.csv
+  caucafall:
+    # Optional second dataset (Mendeley 10.17632/7w7fccy7ky.4). Layout:
+    #   <root>/Subject.<n>/<Activity>/<name><frame>.txt  (YOLO: "cls cx cy w h")
+    #                                 classes.txt         (0=nofall, 1=fall)
+    #                                 <Activity>S<n>.avi
+    # data_prep/caucafall_adapter.py reads the per-frame YOLO class; a frame is
+    # positive when class==1 AND the activity is one of the five "Fall ..." ones.
+    root: data/raw/caucafall
+
+pose:
+  # MediaPipe Tasks PoseLandmarker. complexity 0/1/2 -> lite/full/heavy .task model.
+  # 0 (lite) is the CPU-friendly default; the model file is auto-downloaded to
+  # models/ on first use (or fetch it via data_prep/download.py).
+  model_complexity: 0
+  model_asset_path: null        # override the auto-resolved models/<name>.task path
+  min_detection_confidence: 0.5
+  min_tracking_confidence: 0.5
+  static_image_mode: false      # false -> VIDEO running mode in BOTH prep and live
+
+features:
+  feature_spec_version: "1.0.0"
+  missing_person_policy: hold_last   # hold_last | zeros
+  max_hold: 5                        # frames to reuse last valid landmarks (hold_last)
+  torso_scale_eps: 1.0e-3            # guard for near-zero torso length
+
+window:
+  size: 30
+  stride: 5
+  label_rule: last_k                 # any | last_k | fraction
+  label_k: 10                        # positive if a positive frame is in the last k
+  label_fraction: 0.3                # used only when label_rule == fraction
+  max_undetected: 6                  # drop/zero windows with more undetected frames
+
+split:
+  # Prefer explicit subject lists for reproducibility. Fill after inspecting URFD.
+  test_subjects: []
+  val_subjects: []
+  # Fallback when the lists above are empty:
+  val_ratio: 0.2
+  test_ratio: 0.2
+
+scaler:
+  path: models/scaler.joblib
+
+rf:
+  n_estimators: 300
+  max_depth: 16
+  min_recall: 0.90                   # lowest threshold on val meeting this recall
+  threshold: null                    # filled in by training
+
+gru:
+  # Tuned 2026-09-10 for the small URFD window set (~159 positive train windows):
+  # smaller net + dropout + balanced sampler + lower LR + more epochs.
+  hidden: 32
+  num_layers: 1
+  dropout: 0.2
+  lr: 5.0e-4
+  epochs: 120
+  batch_size: 64
+  grad_clip: 5.0
+  use_sampler: true                  # balanced batches (WeightedRandomSampler)
+  min_precision: 0.60                # pick epoch with best recall s.t. precision >= this
+  threshold: null                    # filled in by training
+
+smoothing:
+  method: ema                        # ema | moving_average
+  alpha: 0.4                          # ema
+  k: 5                                # moving_average window
+
+state_machine:
+  # Tuned 2026-09-10 on the URFD+CAUCAFall val split (EMA alpha 0.4).
+  # RF: val 0.93/1.00, test 0.81/0.93.  GRU: val 0.93/0.76, test 0.88/0.82.
+  # enter_suspected raised 0.30 -> 0.35 after a live webcam session where normal
+  # sitting/walking peaked ~0.40 (fall confirmed at 0.75, non-fall low hit 0.63).
+  enter_suspected: 0.35
+  confirm: 0.70
+  confirm_consecutive: 2
+  clear: 0.30
+  suspected_timeout_s: 3.0
+  cooldown_s: 20.0
+
+fps:
+  dataset_fps: 30
+  assumed_webcam_fps: 15
+  latency_horizon_s: 10.0            # no CONFIRMED within this -> MISS
+
+backend:
+  base_url: http://localhost:8000
+  events_path: /events
+  timeout_s: 3.0
+  mongo_uri_env: MONGO_URI           # env var name for the fallback direct insert
+  mongo_db: dementiacare
+  mongo_collection: events
+
+runtime:
+  threads: 2                          # torch.set_num_threads

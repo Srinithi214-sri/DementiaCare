@@ -1,0 +1,11 @@
+# fall_detection extra dependencies (UTF-8).
+#
+# Everything else the subsystem needs is already pinned in backend/requirements.txt:
+#   mediapipe, opencv-contrib-python, torch, scikit-learn, numpy, scipy, matplotlib,
+#   joblib, pymongo, PyYAML, httpx, requests, python-dotenv, pydantic
+#
+# Install the base env first (pip install -r backend/requirements.txt), then this file.
+# Keep shared-package versions consistent with backend/requirements.txt.
+
+pandas>=2.0
+pytest>=7.4
