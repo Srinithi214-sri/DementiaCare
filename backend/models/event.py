@@ -1,25 +1,19 @@
-"""Pydantic model for documents in the ``dementiacare.events`` collection.
-
-``main.py`` imports this as ``from models.event import Event`` (it is on sys.path
-when uvicorn is started from the ``backend/`` directory). Creating this file is what
-lets the API boot.
-
-Kept permissive (``extra="allow"``) so the fall detector's payload - and any future
-event kinds - validate without a schema change here.
 """
+Conceptual representation of the Event document in MongoDB.
+Pydantic schemas in schemas/event.py are used for API validation and serialization.
 
-from datetime import datetime
-from typing import Any, Optional
-
-from pydantic import BaseModel, ConfigDict
-
-
-class Event(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    type: str
-    timestamp: datetime
-    confidence: Optional[float] = None
-    source: Optional[str] = None
-    snapshot_path: Optional[str] = None
-    meta: Optional[dict[str, Any]] = None
+MongoDB Document Structure (V1):
+{
+    "_id": ObjectId,
+    "patient_id": str (Optional for legacy compatibility),
+    "source": str (e.g. system, user, camera, microphone, speech, ui, future_ai),
+    "event_type": str (e.g. state_change, user_interaction, speech_transcript, visual_observation, audio_observation, system_event),
+    "timestamp": datetime (When the event occurred, UTC),
+    "payload": dict (Structured metadata),
+    "created_at": datetime (When the backend stored the event, UTC),
+    
+    // Legacy fields
+    "state": str,
+    "holdMs": int
+}
+"""
