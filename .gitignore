@@ -27,3 +27,7 @@ fall_detection/models/*.part
 .idea/
 .DS_Store
 Thumbs.db
+
+# Environment files
+.env.*
+!.env.example
